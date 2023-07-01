@@ -1,0 +1,79 @@
+Updation of OD matrix from points as Lines
+-------------------------------------------
+
+
+The path shown on qgis for "shortest distance between two points" is through the road network.
+However, when displaying the shortest path for a set of nodes, qgis shows the eucledian path to avoid bad visualisation.
+
+
+But, in order to know the actual walking/travelling route, it should be able to show the road network route shortest path. 
+
+Hence, Updation of this OD matrix from points as lines has been done. 
+
+
+Changes made in this file are taken from the " Shortest distance between two points" algorithm file.
+
+Initial code (def processAlgorithm -> for loop -> if elif -> else*):   
+--------------------------------------------------------------------------------
+
+
+ else:
+                    network_cost = dijkstra_query[1][query_point.network_vertex_id]
+                    feat.setGeometry(QgsGeometry.fromPolylineXY([start_point.point_geom, query_point.point_geom]))
+                    feat['origin_id'] = start_point.point_id
+                    feat['destination_id'] = query_point.point_id
+                    feat['entry_cost'] = start_point.entry_cost
+                    feat['network_cost'] = network_cost
+                    feat['exit_cost'] = query_point.entry_cost
+                    feat['total_cost'] = network_cost + start_point.entry_cost + query_point.entry_cost
+                    sink.addFeature(feat, QgsFeatureSink.FastInsert)  
+                current_workstep_number=current_workstep_number+1
+                feedback.setProgress((current_workstep_number/total_workload)*100)
+                    
+        feedback.pushInfo("[QNEAT3Algorithm] Total number of OD-pairs processed: {}".format(current_workstep_number))
+
+
+--------------------------------------------------------------------------------------
+
+Updated code:
+
+/**************************************************************************************/
+
+else:
+                    network_cost = dijkstra_query[1][query_point.network_vertex_id]
+                    path_elements = [list_analysis_points[1].point_geom] #start route with the endpoint outside the network
+                    path_elements.append(net.network.vertex(query_point.network_vertex_id).point()) #then append the corresponding vertex of the graph 
+        
+                    count = 1
+                    current_vertex_idx = query_point.network_vertex_id
+                    while current_vertex_idx != start_point.network_vertex_id:
+                         current_vertex_idx = net.network.edge(dijkstra_query[0][current_vertex_idx]).fromVertex()
+                         path_elements.append(net.network.vertex(current_vertex_idx).point())
+            
+            
+                         count = count + 1
+                         if count%10 == 0:
+                              feedback.pushInfo("[QNEAT3Algorithm] Taversed {} Nodes...".format(count))
+        
+                    path_elements.append(list_analysis_points[0].point_geom) #end path with startpoint outside the network   
+                    feedback.pushInfo("[QNEAT3Algorithm] Total number of Nodes traversed: {}".format(count+1))
+                    path_elements.reverse() #reverse path elements because it was built from end to start
+
+                    feat.setGeometry(QgsGeometry.fromPolylineXY([start_point.point_geom, query_point.point_geom]))
+                    feat['origin_id'] = start_point.point_id
+                    feat['destination_id'] = query_point.point_id
+                    feat['entry_cost'] = start_point.entry_cost
+                    feat['network_cost'] = network_cost
+                    feat['exit_cost'] = query_point.entry_cost
+                    feat['total_cost'] = network_cost + start_point.entry_cost + query_point.entry_cost
+                    geom = QgsGeometry.fromPolylineXY(path_elements)
+                    feat.setGeometry(geom)
+                    sink.addFeature(feat, QgsFeatureSink.FastInsert)  
+                current_workstep_number=current_workstep_number+1
+                feedback.setProgress((current_workstep_number/total_workload)*100)
+                    
+        feedback.pushInfo("[QNEAT3Algorithm] Total number of OD-pairs processed new setup: {}".format(current_workstep_number))
+
+/***************************************************************************************/
+
+Note: While taking code from the "Shortest paths" file, change "start_vertex_idx" to "start_point.network_vertex_id" and "end_vertex_idx" to "query_point.network_vertex_id".
